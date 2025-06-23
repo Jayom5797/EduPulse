@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconDefinition } from '@fortawesome/free-solid-svg-icons';
 
 interface StatCardProps {
-  icon: IconDefinition;
+  icon: string;
   label: string;
   value: number;
   colorClass?: string; // e.g. 'text-blue-600'
@@ -46,7 +44,7 @@ const StatCard: React.FC<StatCardProps> = ({
       aria-label={ariaLabel || label}
     >
       <div className={`mb-2`}>
-        <FontAwesomeIcon icon={icon} className={`w-8 h-8 ${colorClass}`} aria-hidden="true" />
+        <span className={`w-8 h-8 text-3xl ${colorClass}`} aria-hidden="true">{icon}</span>
       </div>
       <div className={`text-3xl font-extrabold ${colorClass}`}>{displayValue}{suffix}</div>
       <div className="text-gray-500 font-medium text-center">{label}</div>

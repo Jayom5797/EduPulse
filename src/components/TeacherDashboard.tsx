@@ -10,7 +10,6 @@ import html2canvas from 'html2canvas';
 import AttentionBarChart from './AttentionBarChart';
 import EngagementRadarChart from './EngagementRadarChart';
 import StatCard from './StatCard';
-import { faChalkboardTeacher, faChartLine, faBell } from '@fortawesome/free-solid-svg-icons';
 
 interface Room {
   id: string;
@@ -236,15 +235,15 @@ const TeacherDashboard: React.FC = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
           <StatCard
-            icon={faChalkboardTeacher}
-            label="Total Rooms"
+            icon="👨‍🏫"
+            label="Classes Taught"
             value={totalRooms}
             colorClass="text-blue-600"
             bgClass="from-blue-50 to-blue-100"
             ariaLabel="Total Rooms"
           />
           <StatCard
-            icon={faChartLine}
+            icon="📈"
             label="Avg. Attention"
             value={parseFloat(avgAttention)}
             colorClass="text-green-600"
@@ -253,7 +252,7 @@ const TeacherDashboard: React.FC = () => {
             suffix="%"
           />
           <StatCard
-            icon={faBell}
+            icon="🔔"
             label="Distraction Alerts"
             value={totalDistractions}
             colorClass="text-red-500"

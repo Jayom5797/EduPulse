@@ -11,7 +11,6 @@ import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import AttentionBarChart from './AttentionBarChart';
 import EngagementRadarChart from './EngagementRadarChart';
 import StatCard from './StatCard';
-import { faCalendarAlt, faChartLine, faBell, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 
 interface AttentionData {
   attention: number;
@@ -263,7 +262,7 @@ const Dashboard = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
           <StatCard
-            icon={faCalendarAlt}
+            icon="📅"
             label="Total Meetings"
             value={overallStats.totalMeetings}
             colorClass="text-blue-600"
@@ -271,7 +270,7 @@ const Dashboard = () => {
             ariaLabel="Total Meetings"
           />
           <StatCard
-            icon={faChartLine}
+            icon="📈"
             label="Avg. Attention"
             value={parseFloat(overallStats.overallAverageAttention)}
             colorClass="text-green-600"
@@ -280,7 +279,7 @@ const Dashboard = () => {
             suffix="%"
           />
           <StatCard
-            icon={faBell}
+            icon="🔔"
             label="Distraction Alerts"
             value={overallStats.totalDistractions}
             colorClass="text-red-500"
