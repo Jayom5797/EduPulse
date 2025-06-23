@@ -1,0 +1,48 @@
+.attention-bg {
+  min-height: 100vh;
+  background: #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.attention-title {
+  font-size: 2.2rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+}
+.attention-card {
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 2rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+}
+.attention-bar-labels {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  font-weight: 500;
+}
+.attention-bar-bg {
+  width: 100%;
+  height: 18px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  margin: 0.5rem 0 1.2rem 0;
+  overflow: hidden;
+}
+.attention-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+.attention-status {
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
