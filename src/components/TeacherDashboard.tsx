@@ -7,6 +7,10 @@ import AttentionChart from './AttentionChart';
 import EngagementPieChart from './EngagementPieChart';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import AttentionBarChart from './AttentionBarChart';
+import EngagementRadarChart from './EngagementRadarChart';
+import StatCard from './StatCard';
+import { faChalkboardTeacher, faChartLine, faBell } from '@fortawesome/free-solid-svg-icons';
 
 interface Room {
   id: string;
@@ -35,6 +39,7 @@ const TeacherDashboard: React.FC = () => {
   const [modalRoom, setModalRoom] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [studentAttentionData, setStudentAttentionData] = useState<Record<string, Record<string, { attention: number; timestamp: string }[]>>>({});
+  const [selectedRoom, setSelectedRoom] = useState<string>('');
 
   // Mapping of teacher emails to display names
   const teacherNameMap: Record<string, string> = {
@@ -190,123 +195,241 @@ const TeacherDashboard: React.FC = () => {
     setPdfLoading(false);
   };
 
+  // Calculate overall stats
+  const totalRooms = rooms.length;
+  const allStudents = Object.values(studentsByRoom).flat();
+  const avgAttention = allStudents.length > 0 ? (allStudents.reduce((sum, s) => sum + (s.averageAttention || 0), 0) / allStudents.length).toFixed(2) : '0.00';
+  const totalDistractions = allStudents.reduce((sum, s) => sum + (s.distractionCount || 0), 0);
+
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-white via-blue-50 to-purple-50 flex flex-col items-center py-10 overflow-hidden">
-      {/* Animated Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary-500/20 rounded-full blur-3xl animate-pulse-slow z-0"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse-slow z-0" style={{ animationDelay: '1s' }}></div>
-      <div className="w-full max-w-3xl bg-white/90 rounded-2xl shadow-xl p-10 relative z-10 border border-primary-100">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold">Welcome {getTeacherName()}</h2>
-          <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100 flex flex-col">
+      {/* Topbar */}
+      <header className="w-full flex items-center justify-between px-8 py-4 bg-white shadow-sm z-20">
+        <div className="text-2xl font-bold text-blue-700 tracking-tight">EduPulse</div>
+        <div className="flex items-center gap-4">
+          <span className="text-gray-700 font-medium">Welcome, {getTeacherName()}</span>
+          <button
+            onClick={handleLogout}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg shadow transition-all"
+          >
+            Logout
+          </button>
         </div>
-        <h3 className="text-xl font-semibold mb-4">Your Rooms & Student Insights</h3>
+      </header>
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-8">
+        {/* Filter Controls */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <label htmlFor="room-filter" className="text-gray-700 font-medium">Filter by Room:</label>
+          <select
+            id="room-filter"
+            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            value={selectedRoom}
+            onChange={e => setSelectedRoom(e.target.value)}
+          >
+            <option value="">All Rooms</option>
+            {rooms.map((room) => (
+              <option key={room.id} value={room.id}>{room.id}</option>
+            ))}
+          </select>
+        </div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+          <StatCard
+            icon={faChalkboardTeacher}
+            label="Total Rooms"
+            value={totalRooms}
+            colorClass="text-blue-600"
+            bgClass="from-blue-50 to-blue-100"
+            ariaLabel="Total Rooms"
+          />
+          <StatCard
+            icon={faChartLine}
+            label="Avg. Attention"
+            value={parseFloat(avgAttention)}
+            colorClass="text-green-600"
+            bgClass="from-green-50 to-green-100"
+            ariaLabel="Average Attention"
+            suffix="%"
+          />
+          <StatCard
+            icon={faBell}
+            label="Distraction Alerts"
+            value={totalDistractions}
+            colorClass="text-red-500"
+            bgClass="from-red-50 to-red-100"
+            ariaLabel="Distraction Alerts"
+          />
+        </div>
+        {/* Rooms List */}
         {loading ? (
-          <p>Loading rooms and students...</p>
-        ) : rooms.length === 0 ? (
-          <p>No rooms found for your account.</p>
-        ) : (
-          <div className="space-y-8">
-            {rooms.map(room => {
-              const students = studentsByRoom[room.id] || [];
-              // Gather all attention data for this room
-              const allAttentionData = students.flatMap(student => {
-                // Simulate per-student attention data as an array of objects with timestamp and attention
-                // In real use, you would fetch and aggregate actual attentionData arrays
-                return student.averageAttention !== undefined ? [{ attention: student.averageAttention, timestamp: student.joinedAt || '' }] : [];
-              });
-              return (
-                <div key={room.id} className="border-b pb-4 mb-6">
-                  {/* Charts row restored to on-screen dashboard */}
-                  <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <div className="bg-gray-50 p-4 rounded-lg shadow-inner flex-1">
-                      <h4 className="text-md font-semibold text-gray-700 mb-2 text-center">Attention Over Time</h4>
-                      <AttentionChart attentionData={students.flatMap(student => (studentAttentionData[room.id] && studentAttentionData[room.id][student.userId]) || [])} />
+          <div className="flex justify-center items-center h-40">
+            <span className="text-gray-500 text-lg">Loading rooms...</span>
+          </div>
+        ) : rooms.length > 0 ? (
+          <div className="flex flex-col gap-8 w-full">
+            {rooms
+              .filter(room => !selectedRoom || room.id === selectedRoom)
+              .map(room => {
+                const students = studentsByRoom[room.id] || [];
+                const attentionData = students.flatMap(student => (studentAttentionData[room.id] && studentAttentionData[room.id][student.userId]) || []);
+                return (
+                  <div key={room.id} className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-6 w-full">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-2 w-full">
+                      <div>
+                        <div className="text-2xl font-bold text-blue-700 mb-1">Room: {room.id}</div>
+                        <div className="text-base text-gray-500">Teacher: {getTeacherName()}</div>
+                        <div className="text-base text-gray-500">Students: {students.length}</div>
+                      </div>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg shadow-inner flex-1">
-                      <h4 className="text-md font-semibold text-gray-700 mb-2 text-center">Engagement Level Breakdown</h4>
-                      <EngagementPieChart attentionData={students.flatMap(student => (studentAttentionData[room.id] && studentAttentionData[room.id][student.userId]) || [])} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full">
+                      <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                        <div className="text-xs text-gray-500 mb-1">Avg. Attention</div>
+                        <div className="text-3xl font-bold text-green-600">{students.length > 0 ? (students.reduce((sum, s) => sum + (s.averageAttention || 0), 0) / students.length).toFixed(2) + '%' : '-'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                        <div className="text-xs text-gray-500 mb-1">Distraction Alerts</div>
+                        <div className="text-3xl font-bold text-red-500">{students.reduce((sum, s) => sum + (s.distractionCount || 0), 0)}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                        <div className="text-xs text-gray-500 mb-1">Highest Focus</div>
+                        <div className="text-3xl font-bold text-green-500">{students.length > 0 ? Math.max(...students.map(s => s.averageAttention || 0)).toFixed(0) + '%' : '-'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                        <div className="text-xs text-gray-500 mb-1">Lowest Focus</div>
+                        <div className="text-3xl font-bold text-yellow-500">{students.length > 0 ? Math.min(...students.map(s => s.averageAttention || 0)).toFixed(0) + '%' : '-'}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="ml-2">
-                    {students.length > 0 ? (
-                      <table className="min-w-full text-left text-sm">
-                        <thead>
-                          <tr>
-                            <th className="py-1 px-2">Student</th>
-                            <th className="py-1 px-2">Joined At</th>
-                            <th className="py-1 px-2">Avg. Attention</th>
-                            <th className="py-1 px-2">Distractions</th>
-                            <th className="py-1 px-2">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map(student => (
-                            <tr key={student.id}>
-                              <td className="py-1 px-2 font-medium">{student.userId}</td>
-                              <td className="py-1 px-2">{student.joinedAt || '-'}</td>
-                              <td className="py-1 px-2">{student.averageAttention !== undefined ? student.averageAttention.toFixed(2) + '%' : '-'}</td>
-                              <td className="py-1 px-2">{student.distractionCount ?? '-'}</td>
-                              <td className="py-1 px-2">
-                                <button className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors text-xs" onClick={() => openStudentReport(student, room.id)}>View Report</button>
-                              </td>
+                    <div className="w-full mt-6">
+                      {attentionData && attentionData.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-white rounded-xl shadow-inner p-6">
+                            <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">Attention Analysis</h4>
+                            <AttentionBarChart attentionData={attentionData} />
+                          </div>
+                          <div className="bg-white rounded-xl shadow-inner p-6">
+                            <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">Engagement Analysis</h4>
+                            <EngagementRadarChart attentionData={attentionData} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400">No attention data available for this room.</div>
+                      )}
+                    </div>
+                    <div className="ml-2">
+                      {students.length > 0 ? (
+                        <table className="min-w-full text-left text-sm">
+                          <thead>
+                            <tr>
+                              <th className="py-1 px-2">Student</th>
+                              <th className="py-1 px-2">Joined At</th>
+                              <th className="py-1 px-2">Avg. Attention</th>
+                              <th className="py-1 px-2">Distractions</th>
+                              <th className="py-1 px-2">Action</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="text-gray-500">No students found in this room.</div>
-                    )}
+                          </thead>
+                          <tbody>
+                            {students.map(student => (
+                              <tr key={student.id}>
+                                <td className="py-1 px-2 font-medium">{student.userId}</td>
+                                <td className="py-1 px-2">{student.joinedAt || '-'}</td>
+                                <td className="py-1 px-2">{student.averageAttention !== undefined ? student.averageAttention.toFixed(2) + '%' : '-'}</td>
+                                <td className="py-1 px-2">{student.distractionCount ?? '-'}</td>
+                                <td className="py-1 px-2">
+                                  <button
+                                    className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all flex items-center gap-2"
+                                    onClick={() => openStudentReport(student, room.id)}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    View Report
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="text-gray-500">No students found in this room.</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+          </div>
+        ) : (
+          <div className="flex justify-center items-center h-40">
+            <span className="text-gray-500 text-lg">No rooms found for your account.</span>
           </div>
         )}
+      </main>
+      <div className="flex justify-center w-full pb-8">
+        <button
+          onClick={downloadAllReports}
+          className="bg-gradient-to-r from-green-400 to-blue-500 text-white font-semibold px-4 py-2 rounded-xl shadow-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-300 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          disabled={pdfLoading}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          {pdfLoading ? 'Generating PDF...' : 'Download All Reports'}
+        </button>
       </div>
       {/* Modal for student report */}
       {modalOpen && modalStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full p-6 relative">
-            <button onClick={closeModal} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            <h2 className="text-2xl font-bold mb-2">Student Report</h2>
-            <div className="mb-2 text-gray-700 font-medium">Teacher: {getTeacherName()}</div>
-            <div className="mb-4 text-gray-700 font-medium">Student: {modalStudent.userId}</div>
-            <div className="flex items-center text-gray-600 text-sm mb-4">
-              <span>Joined: {modalStudent.joinedAt || '-'} </span>
-            </div>
-            <div id="student-report-modal">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
-                  <h4 className="text-md font-semibold text-gray-700 mb-2 text-center">Attention Over Time</h4>
-                  {modalAttentionData.length > 0 ? (
-                    <AttentionChart attentionData={modalAttentionData} />
-                  ) : (
-                    <div className="text-gray-400 text-center">No attention data available for this student.</div>
-                  )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl mx-auto rounded-3xl shadow-2xl p-0 overflow-hidden" style={{background: 'rgba(255,255,255,0.85)', border: '1.5px solid #e0e7ff', boxShadow: '0 8px 32px 0 rgba(31,38,135,0.18)', backdropFilter: 'blur(12px)'}}>
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors text-3xl font-bold focus:outline-none z-10">
+              &times;
+            </button>
+            <div className="px-10 pt-12 pb-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-gradient-to-br from-blue-500 to-purple-500 p-2 rounded-xl shadow">
+                  <svg xmlns='http://www.w3.org/2000/svg' className='h-7 w-7 text-white' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z' /></svg>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
-                  <EngagementPieChart attentionData={modalAttentionData} />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Student Report</h2>
+                  <div className="text-gray-500 text-sm">Detailed engagement analytics</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-gray-100 p-4 rounded-lg text-center">
-                  <p className="text-sm text-gray-500">Avg. Attention</p>
-                  <p className="text-2xl font-bold text-blue-600">{modalStudent.averageAttention !== undefined ? modalStudent.averageAttention.toFixed(2) + '%' : '-'}</p>
+              <div className="flex flex-col md:flex-row md:items-center gap-4 mb-2">
+                <div className="text-gray-700 font-medium">Teacher: <span className="font-semibold text-blue-700">{getTeacherName()}</span></div>
+                <div className="text-gray-700 font-medium">Student: <span className="font-semibold text-purple-700">{modalStudent.userId}</span></div>
+                <div className="text-gray-600 text-sm">Joined: {modalStudent.joinedAt || '-'}</div>
+              </div>
+              <div id="student-report-modal">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white/80 rounded-2xl shadow-inner p-6">
+                    <h4 className="text-md font-semibold text-gray-700 mb-4 text-center">Attention Analysis</h4>
+                    {modalAttentionData.length > 0 ? (
+                      <AttentionBarChart attentionData={modalAttentionData} />
+                    ) : (
+                      <div className="text-gray-400 text-center">No attention data available for this student.</div>
+                    )}
+                  </div>
+                  <div className="bg-white/80 rounded-2xl shadow-inner p-6">
+                    <h4 className="text-md font-semibold text-gray-700 mb-4 text-center">Engagement Analysis</h4>
+                    <EngagementRadarChart attentionData={modalAttentionData} />
+                  </div>
                 </div>
-                <div className="bg-gray-100 p-4 rounded-lg text-center">
-                  <p className="text-sm text-gray-500">Distraction Alerts</p>
-                  <p className="text-2xl font-bold text-red-500">{modalStudent.distractionCount ?? '-'}</p>
+                <div className="grid grid-cols-2 gap-6 mb-2">
+                  <div className="rounded-2xl p-6 flex flex-col items-center bg-gradient-to-br from-blue-100 via-blue-50 to-purple-100 shadow">
+                    <div className="mb-2">
+                      <svg xmlns='http://www.w3.org/2000/svg' className='h-7 w-7 text-blue-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 16h-1v-4h-1m4 0h-1v-4h-1m-4 0h-1v-4h-1' /></svg>
+                    </div>
+                    <p className="text-sm text-gray-500">Avg. Attention</p>
+                    <p className="text-2xl font-bold text-blue-600">{modalStudent.averageAttention !== undefined ? modalStudent.averageAttention.toFixed(2) + '%' : '-'}</p>
+                  </div>
+                  <div className="rounded-2xl p-6 flex flex-col items-center bg-gradient-to-br from-pink-100 via-red-50 to-yellow-100 shadow">
+                    <div className="mb-2">
+                      <svg xmlns='http://www.w3.org/2000/svg' className='h-7 w-7 text-red-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M18.364 5.636l-1.414 1.414A9 9 0 105.636 18.364l1.414-1.414' /></svg>
+                    </div>
+                    <p className="text-sm text-gray-500">Distraction Alerts</p>
+                    <p className="text-2xl font-bold text-red-500">{modalStudent.distractionCount ?? '-'}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-      {/* Download All Reports Button moved to bottom */}
-      <button onClick={downloadAllReports} className="mt-8 px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-semibold text-lg shadow" disabled={pdfLoading}>
-        {pdfLoading ? 'Generating PDF...' : 'Download All Reports'}
-      </button>
       {/* Off-screen dashboard summary for PDF export */}
       <div id="dashboard-summary-pdf" style={{ position: 'absolute', left: '-9999px', top: 0, width: '900px', background: '#fff', padding: 24, boxSizing: 'border-box' }} aria-hidden="true">
         {/* Render the same dashboard summary as on screen: welcome, room summary, charts, table */}
@@ -322,27 +445,54 @@ const TeacherDashboard: React.FC = () => {
               <div key={room.id} style={{ marginBottom: 32 }}>
                 <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Room: {room.id}</div>
                 <div style={{ display: 'flex', gap: 24, marginBottom: 32 }}>
-                  <div style={{ flex: 1, background: 'linear-gradient(135deg, #e0e7ff 60%, #f3e8ff 100%)', borderRadius: 16, padding: 24, textAlign: 'center', boxShadow: '0 4px 24px #a5b4fc33' }}>
-                    <div style={{ fontSize: 16, color: '#6366f1', fontWeight: 600 }}>Total Students</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#7c3aed' }}>{students.length}</div>
+                  <div style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #d1fae5 60%, #f0fdf4 100%)',
+                    borderRadius: '1em',
+                    boxShadow: '0 4px 24px #6ee7b733',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: '#059669',
+                    fontWeight: 800,
+                  }}>
+                    {students.length}
+                    <div style={{ fontSize: '1rem', color: '#10b981' }}>Total Students</div>
                   </div>
-                  <div style={{ flex: 1, background: 'linear-gradient(135deg, #d1fae5 60%, #f0fdf4 100%)', borderRadius: 16, padding: 24, textAlign: 'center', boxShadow: '0 4px 24px #6ee7b733' }}>
-                    <div style={{ fontSize: 16, color: '#059669', fontWeight: 600 }}>Avg. Attention</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#059669' }}>{students.length > 0 ? (students.reduce((sum, s) => sum + (s.averageAttention || 0), 0) / students.length).toFixed(2) + '%' : '-'}</div>
+                  <div style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #d1fae5 60%, #f0fdf4 100%)',
+                    borderRadius: '1em',
+                    boxShadow: '0 4px 24px #6ee7b733',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: '#059669',
+                    fontWeight: 800,
+                  }}>
+                    {students.length > 0 ? (students.reduce((sum, s) => sum + (s.averageAttention || 0), 0) / students.length).toFixed(2) + '%' : '-'}
+                    <div style={{ fontSize: '1rem', color: '#10b981' }}>Avg. Attention</div>
                   </div>
-                  <div style={{ flex: 1, background: 'linear-gradient(135deg, #fee2e2 60%, #fef2f2 100%)', borderRadius: 16, padding: 24, textAlign: 'center', boxShadow: '0 4px 24px #fecaca33' }}>
-                    <div style={{ fontSize: 16, color: '#dc2626', fontWeight: 600 }}>Total Distractions</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#dc2626' }}>{students.reduce((sum, s) => sum + (s.distractionCount || 0), 0)}</div>
+                  <div style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #fee2e2 60%, #fef2f2 100%)',
+                    borderRadius: '1em',
+                    boxShadow: '0 4px 24px #fecaca33',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: '#dc2626',
+                    fontWeight: 800,
+                  }}>
+                    {students.reduce((sum, s) => sum + (s.distractionCount || 0), 0)}
+                    <div style={{ fontSize: '1rem', color: '#dc2626' }}>Total Distractions</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 24, marginBottom: 32 }}>
                   <div style={{ flex: 1, background: 'linear-gradient(135deg, #e0e7ff 60%, #f3e8ff 100%)', borderRadius: 16, padding: 20, textAlign: 'center', boxShadow: '0 2px 12px #a5b4fc33' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 8, color: '#6366f1', fontSize: 16 }}>Attention Over Time</div>
-                    <AttentionChart attentionData={attentionData} />
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: '#6366f1', fontSize: 16 }}>Attention Analysis</div>
+                    <AttentionBarChart attentionData={attentionData} />
                   </div>
                   <div style={{ flex: 1, background: 'linear-gradient(135deg, #f3e8ff 60%, #e0e7ff 100%)', borderRadius: 16, padding: 20, textAlign: 'center', boxShadow: '0 2px 12px #a5b4fc33' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 8, color: '#a21caf', fontSize: 16 }}>Engagement Level Breakdown</div>
-                    <EngagementPieChart attentionData={attentionData} />
+                    <div style={{ fontWeight: 600, marginBottom: 8, color: '#a21caf', fontSize: 16 }}>Engagement Analysis</div>
+                    <EngagementRadarChart attentionData={attentionData} />
                   </div>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24, background: 'rgba(255,255,255,0.95)', borderRadius: 12, boxShadow: '0 2px 8px #0001' }}>
@@ -384,12 +534,12 @@ const TeacherDashboard: React.FC = () => {
                 <div style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>Joined: {student.joinedAt || '-'}</div>
                 <div style={{ display: 'flex', flexDirection: 'row', gap: 16, marginBottom: 16 }}>
                   <div style={{ background: '#f3f4f6', borderRadius: 8, padding: 12, textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Attention Over Time</div>
-                    <AttentionChart attentionData={attentionData} />
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Attention Analysis</div>
+                    <AttentionBarChart attentionData={attentionData} />
                   </div>
                   <div style={{ background: '#f3f4f6', borderRadius: 8, padding: 12, textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Engagement Level Breakdown</div>
-                    <EngagementPieChart attentionData={attentionData} />
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Engagement Analysis</div>
+                    <EngagementRadarChart attentionData={attentionData} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
@@ -400,6 +550,20 @@ const TeacherDashboard: React.FC = () => {
                   <div style={{ background: '#fee2e2', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120 }}>
                     <div style={{ fontSize: 13, color: '#555' }}>Distraction Alerts</div>
                     <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{student.distractionCount ?? '-'}</div>
+                  </div>
+                  <div style={{ background: 'linear-gradient(135deg, #fef9c3 60%, #fde68a 100%)', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120, boxShadow: '0 2px 8px #fde68a33' }}>
+                    <div style={{ fontSize: 13, color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <svg xmlns='http://www.w3.org/2000/svg' className='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4l3 3' /></svg>
+                      Total Avg. (Past)
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#b45309' }}>{
+                      (() => {
+                        const allStudents = studentsByRoom[room.id] || [];
+                        if (allStudents.length === 0) return '-';
+                        const avg = allStudents.reduce((sum, s) => sum + (s.averageAttention || 0), 0) / allStudents.length;
+                        return avg.toFixed(2) + '%';
+                      })()
+                    }</div>
                   </div>
                 </div>
               </div>

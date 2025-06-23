@@ -8,6 +8,10 @@ import { TrendingUp, TrendingDown, Minus, Clock, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import AttentionBarChart from './AttentionBarChart';
+import EngagementRadarChart from './EngagementRadarChart';
+import StatCard from './StatCard';
+import { faCalendarAlt, faChartLine, faBell, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 
 interface AttentionData {
   attention: number;
@@ -239,131 +243,171 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-white via-blue-50 to-purple-50 p-8 overflow-hidden">
-      {/* Animated Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary-500/20 rounded-full blur-3xl animate-pulse-slow z-0"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse-slow z-0" style={{ animationDelay: '1s' }}></div>
-      <div className="max-w-4xl mx-auto relative z-10">
-        <div className="flex justify-between items-center mb-2">
-          <h1 className="text-3xl font-bold text-gray-800">{displayName ? `Welcome \"${displayName}\"` : 'Welcome'}</h1>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <span>&larr; Back</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100 flex flex-col">
+      {/* Topbar */}
+      <header className="w-full flex items-center justify-between px-8 py-4 bg-white shadow-sm z-20">
+        <div className="text-2xl font-bold text-blue-700 tracking-tight">EduPulse</div>
+        <div className="flex items-center gap-4">
+          <span className="text-gray-700 font-medium">{displayName ? `Welcome, ${displayName}` : 'Welcome'}</span>
+          <button
+            onClick={handleLogout}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg shadow transition-all"
+          >
+            Logout
+          </button>
         </div>
-        <p className="text-gray-500 mb-8">An overview of your meeting performance and attention trends.</p>
+      </header>
 
-        {/* Overall Stats */}
-        <div className="bg-gradient-to-br from-primary-100/80 to-purple-100/80 rounded-2xl shadow-xl p-8 mb-10 border border-primary-100">
-          <h2 className="text-3xl font-bold gradient-text mb-6">Overall Performance</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            <div className="bg-white/80 rounded-xl shadow-lg p-6 card-hover">
-              <p className="text-md text-gray-500 mb-2">Total Meetings</p>
-              <p className="text-4xl font-extrabold text-yellow-400">{overallStats.totalMeetings}</p>
-            </div>
-            <div className="bg-white/80 rounded-xl shadow-lg p-6 card-hover">
-              <p className="text-md text-gray-500 mb-2">Overall Avg. Attention</p>
-              <p className={`text-4xl font-extrabold ${getAttentionColor(parseFloat(overallStats.overallAverageAttention))}`}>{overallStats.overallAverageAttention}%</p>
-            </div>
-            <div className="bg-white/80 rounded-xl shadow-lg p-6 card-hover">
-              <p className="text-md text-gray-500 mb-2">Total Distraction Alerts</p>
-              <p className="text-4xl font-extrabold text-red-500">{overallStats.totalDistractions}</p>
-            </div>
-          </div>
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-8">
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+          <StatCard
+            icon={faCalendarAlt}
+            label="Total Meetings"
+            value={overallStats.totalMeetings}
+            colorClass="text-blue-600"
+            bgClass="from-blue-50 to-blue-100"
+            ariaLabel="Total Meetings"
+          />
+          <StatCard
+            icon={faChartLine}
+            label="Avg. Attention"
+            value={parseFloat(overallStats.overallAverageAttention)}
+            colorClass="text-green-600"
+            bgClass="from-green-50 to-green-100"
+            ariaLabel="Average Attention"
+            suffix="%"
+          />
+          <StatCard
+            icon={faBell}
+            label="Distraction Alerts"
+            value={overallStats.totalDistractions}
+            colorClass="text-red-500"
+            bgClass="from-red-50 to-red-100"
+            ariaLabel="Distraction Alerts"
+          />
         </div>
 
+        {/* Meetings List */}
         {loading ? (
-          <p>Loading meetings...</p>
+          <div className="flex justify-center items-center h-40">
+            <span className="text-gray-500 text-lg">Loading meetings...</span>
+          </div>
         ) : meetings.length > 0 ? (
-          <div className="space-y-8">
+          <div className="flex flex-col gap-8 w-full">
             {meetings.map((meeting, index) => (
-              <div key={index} id={`meeting-report-${meeting.roomName}`} className="bg-gradient-to-br from-primary-100/80 to-purple-100/80 p-8 rounded-2xl shadow-xl border border-primary-100 transition-all hover:shadow-2xl card-hover mb-10">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">Meeting: {meeting.roomName}</h2>
-                  <button 
-                    onClick={() => downloadPdf(meeting.roomName)} 
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    <span>Download Report</span>
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                  {/* Left side: Teacher/Student info, Meeting Details & Insights (2/5 width) */}
-                  <div className="md:col-span-2 flex flex-col justify-center space-y-6">
-                    <div className="mb-4">
-                      <div className="font-bold text-primary-700 text-2xl gradient-text">Teacher: {getTeacherName(meeting.teacherEmail)}</div>
-                      <div className="font-bold text-purple-700 text-2xl gradient-text">Student: {meeting.studentName}</div>
+              <React.Fragment key={index}>
+                <div className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-6 w-full">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-2 w-full">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-700 mb-1">Meeting: {meeting.roomName}</div>
+                      <div className="text-base text-gray-500">Teacher: {getTeacherName(meeting.teacherEmail)}</div>
+                      <div className="text-base text-gray-500">Student: {meeting.studentName}</div>
                     </div>
-                    <div className="flex items-center text-gray-600 text-sm">
-                      <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>
-                        Joined: {meeting.joinedAt} | Duration: {meeting.duration} (Role: {meeting.role})
-                      </span>
+                    <button
+                      onClick={() => downloadPdf(meeting.roomName)}
+                      className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold px-5 py-2 rounded shadow-sm transition-all mt-2 md:mt-0"
+                    >
+                      <Download className="w-5 h-5 inline mr-1" /> Report
+                    </button>
+                  </div>
+                  <div className="flex flex-col md:flex-row md:items-center gap-6 text-base text-gray-600 w-full">
+                    <div className="flex-1">Joined: {meeting.joinedAt} | Duration: {meeting.duration} (Role: {meeting.role})</div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full">
+                    <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                      <div className="text-xs text-gray-500 mb-1">Avg. Attention</div>
+                      <div className={`text-3xl font-bold ${getAttentionColor(parseFloat(meeting.averageAttention))}`}>{meeting.averageAttention}%</div>
                     </div>
-
-                    <div className="border-t pt-4 mt-4">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-3">Key Insights</h3>
-                      <div className="grid grid-cols-2 gap-4 text-center">
-                        <div className="bg-white/80 p-4 rounded-xl shadow card-hover flex flex-col justify-center items-center">
-                          <p className="text-md text-gray-500">Avg. Attention</p>
-                          <div className="flex items-center">
-                            <p className={`text-3xl font-extrabold ${getAttentionColor(parseFloat(meeting.averageAttention))}`}>{meeting.averageAttention}%</p>
-                            <TrendIcon trend={meeting.attentionTrend} />
-                          </div>
-                        </div>
-                        <div className="bg-white/80 p-4 rounded-xl shadow card-hover">
-                          <p className="text-md text-gray-500">Distraction Alerts</p>
-                          <p className="text-3xl font-extrabold text-red-500">{meeting.distractionCount}</p>
-                        </div>
-                        <div className="bg-white/80 p-4 rounded-xl shadow card-hover">
-                          <p className="text-md text-gray-500">Highest Focus</p>
-                          <p className="text-3xl font-extrabold text-green-500">{meeting.maxAttention}%</p>
-                        </div>
-                        <div className="bg-white/80 p-4 rounded-xl shadow card-hover">
-                          <p className="text-md text-gray-500">Lowest Focus</p>
-                          <p className="text-3xl font-extrabold text-yellow-500">{meeting.minAttention}%</p>
-                        </div>
-                      </div>
+                    <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                      <div className="text-xs text-gray-500 mb-1">Distraction Alerts</div>
+                      <div className="text-3xl font-bold text-red-500">{meeting.distractionCount}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                      <div className="text-xs text-gray-500 mb-1">Highest Focus</div>
+                      <div className="text-3xl font-bold text-green-500">{meeting.maxAttention}%</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-6 flex flex-col items-center">
+                      <div className="text-xs text-gray-500 mb-1">Lowest Focus</div>
+                      <div className="text-3xl font-bold text-yellow-500">{meeting.minAttention}%</div>
                     </div>
                   </div>
-
-                  {/* Right side: Charts (3/5 width) */}
-                  <div className="md:col-span-3 space-y-4">
+                  <div className="w-full mt-6">
                     {meeting.attentionData && meeting.attentionData.length > 0 ? (
-                      <>
-                        <div className="bg-gradient-to-br from-primary-100/60 to-purple-100/60 p-4 rounded-xl shadow-inner card-hover">
-                          <h4 className="text-md font-semibold text-gray-700 mb-2 text-center">Attention Over Time</h4>
-                           <AttentionChart attentionData={meeting.attentionData} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-xl shadow-inner p-6">
+                          <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">Attention Analysis</h4>
+                          <AttentionBarChart attentionData={meeting.attentionData} />
                         </div>
-                        <div className="bg-gradient-to-br from-primary-100/60 to-purple-100/60 p-4 rounded-xl shadow-inner card-hover">
-                          <EngagementPieChart attentionData={meeting.attentionData} />
+                        <div className="bg-white rounded-xl shadow-inner p-6">
+                          <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">Engagement Analysis</h4>
+                          <EngagementRadarChart attentionData={meeting.attentionData} />
                         </div>
-                      </>
-                    ) : (
-                      <div className="col-span-1 text-center text-gray-500 flex items-center justify-center">
-                        <p>No attention data available for this meeting.</p>
                       </div>
+                    ) : (
+                      <div className="text-center text-gray-400">No attention data available for this meeting.</div>
                     )}
                   </div>
                 </div>
-              </div>
+                {/* Print-optimized hidden report for PDF export */}
+                <div
+                  id={`meeting-report-${meeting.roomName}`}
+                  style={{
+                    position: 'absolute',
+                    left: '-9999px',
+                    top: 0,
+                    width: '900px',
+                    background: '#fff',
+                    padding: 24,
+                    boxSizing: 'border-box',
+                    zIndex: -1,
+                  }}
+                  aria-hidden="true"
+                >
+                  <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: '#1e293b' }}>Meeting Report</h2>
+                  <div style={{ marginBottom: 4, color: '#334155', fontWeight: 500 }}>Teacher: {getTeacherName(meeting.teacherEmail)}</div>
+                  <div style={{ marginBottom: 12, color: '#334155', fontWeight: 500 }}>Student: {meeting.studentName}</div>
+                  <div style={{ color: '#64748b', fontSize: 15, marginBottom: 16 }}>Joined: {meeting.joinedAt || '-'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'row', gap: 24, marginBottom: 24 }}>
+                    <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 16, textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 8, color: '#2563eb', fontSize: 16 }}>Attention Analysis</div>
+                      <AttentionBarChart attentionData={meeting.attentionData} />
+                    </div>
+                    <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 16, textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 8, color: '#a21caf', fontSize: 16 }}>Engagement Analysis</div>
+                      <EngagementRadarChart attentionData={meeting.attentionData} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 8 }}>
+                    <div style={{ background: '#e0e7ff', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120 }}>
+                      <div style={{ fontSize: 13, color: '#555' }}>Avg. Attention</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#2563eb' }}>{meeting.averageAttention !== undefined ? meeting.averageAttention + '%' : '-'}</div>
+                    </div>
+                    <div style={{ background: '#fee2e2', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120 }}>
+                      <div style={{ fontSize: 13, color: '#555' }}>Distraction Alerts</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{meeting.distractionCount ?? '-'}</div>
+                    </div>
+                    <div style={{ background: '#fef9c3', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120 }}>
+                      <div style={{ fontSize: 13, color: '#b45309' }}>Highest Focus</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#b45309' }}>{meeting.maxAttention !== undefined ? meeting.maxAttention + '%' : '-'}</div>
+                    </div>
+                    <div style={{ background: '#fef9c3', borderRadius: 8, padding: 16, textAlign: 'center', minWidth: 120 }}>
+                      <div style={{ fontSize: 13, color: '#b45309' }}>Lowest Focus</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#b45309' }}>{meeting.minAttention !== undefined ? meeting.minAttention + '%' : '-'}</div>
+                    </div>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: 14, marginTop: 8 }}>Duration: {meeting.duration} | Role: {meeting.role}</div>
+                </div>
+              </React.Fragment>
             ))}
           </div>
         ) : (
-          <p className="text-gray-500">No meetings found for this user.</p>
+          <div className="flex justify-center items-center h-40">
+            <span className="text-gray-500 text-lg">No meetings found for this user.</span>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };
